@@ -19,6 +19,14 @@ const player = {
   angle: 0
 };
 
+//Camera Setup
+const camera = {
+  x: 0,
+  y: 0,
+  width: window.innerWidth,
+  height: window.innerHeight
+};
+
 // NPC Setup
 let npc = {
   x: canvas.width / 4,
@@ -43,15 +51,25 @@ const projectileSize = 5;
 const projectileSpeed = 3;
 
 
+
 // Zombie NPCs Setup
 const zombies = [];
-let maxZombies = 2; // Maximum number of zombies allowed
+let maxZombies = 2; // Maximum number of zombies alawlowed
 const zombieSize = 30;
-const zombieSpeed = 0.8;
+let zombieSpeed = 0.8;
 const zombieGap = 50;
 
 // Score Setup
 let score = 999;
+
+
+// Store Upgrade Tracking
+let zombieSpeedUpgradeCost = 40;
+let zombieSpeedUpgradeCount = 0;
+
+let zombieArmorUpgradeCost = 50;
+let zombieArmorUpgradeCount = 0;
+const maxZombieArmorUpgrades = 2;
 
 // Input Setup
 const mouse = {
@@ -82,6 +100,23 @@ function update() {
   if (keys.down) player.y += player.speed;
   if (keys.left) player.x -= player.speed;
   if (keys.right) player.x += player.speed;
+
+  // Update camera position
+  const cameraSpeed = 5;
+  if (player.x < camera.x + camera.width * 0.25) {
+    camera.x -= cameraSpeed;
+  } else if (player.x > camera.x + camera.width * 0.75) {
+    camera.x += cameraSpeed;
+  }
+  if (player.y < camera.y + camera.height * 0.25) {
+    camera.y -= cameraSpeed;
+  } else if (player.y > camera.y + camera.height * 0.75) {
+    camera.y += cameraSpeed;
+  }
+
+  // Clamp camera position within canvas boundaries
+  camera.x = Math.max(0, Math.min(camera.x, canvas.width - camera.width));
+  camera.y = Math.max(0, Math.min(camera.y, canvas.height - camera.height));
 
   // Player Speed Boost
   player.isSpeedBoosted = keys.shift;
@@ -128,13 +163,13 @@ function update() {
    }
  });
 
- // NPC Boundaries
- if (npc.x <= 0 || npc.x >= canvas.width - npc.size) {
-   npc.dx *= -1;
- }
- if (npc.y <= 0 || npc.y >= canvas.height - npc.size) {
-   npc.dy *= -1;
- }
+// NPC Boundaries
+if (npc.x <= 0 || npc.x >= canvas.width - npc.size) {
+  npc.dx *= -1;
+}
+if (npc.y <= 0 || npc.y >= canvas.height - npc.size) {
+  npc.dy *= -1;
+}
    
   // Zombie NPCs Movement
   zombies.forEach((zombie, index) => {
@@ -180,17 +215,19 @@ function update() {
   });
 
    // Check collision between NPC and player
-   if (isColliding(npc, player)) {
+  if (isColliding(npc, player)) {
     if (zombies.length < maxZombies) {
+
       zombies.push({
         x: npc.x,
         y: npc.y,
         size: zombieSize,
         speed: zombieSpeed,
-        color: 'green'
+        color: 'green',
+        armor: zombieArmorUpgradeCount + 1
       });
-      score++; // Increase score by 1
     }
+    score++; // Increase score by 1
     spawnNewNPC();
   }
 
@@ -203,16 +240,17 @@ function update() {
           y: npc.y,
           size: zombieSize,
           speed: zombieSpeed,
-          color: 'green'
+          color: 'green',
+          armor: zombieArmorUpgradeCount + 1 
         });
-        score++; // Increase score by 1
       }
+      score++; // Increase score by 1
       spawnNewNPC();
     }
   });
 
    // Spawn Soldier NPC
-   if (score >= 10000 && soldier === null) {
+   if (score >= 100 && soldier === null) {
     soldier = {
       x: Math.random() * (canvas.width - soldierSize),
       y: Math.random() * (canvas.height - soldierSize),
@@ -263,11 +301,13 @@ function update() {
     });
 
     // Soldier NPC Boundaries
-    if (soldier.x <= 0 || soldier.x >= canvas.width - soldier.size) {
-      soldier.dx *= -1;
-    }
-    if (soldier.y <= 0 || soldier.y >= canvas.height - soldier.size) {
-      soldier.dy *= -1;
+    if (soldier !== null) {
+      if (soldier.x <= 0 || soldier.x >= canvas.width - soldier.size) {
+        soldier.dx *= -1;
+      }
+      if (soldier.y <= 0 || soldier.y >= canvas.height - soldier.size) {
+        soldier.dy *= -1;
+      }
     }
 
    // Soldier NPC Shooting
@@ -316,32 +356,28 @@ function update() {
     
   // Check collision between soldier projectile and zombie NPCs
   if (soldierProjectile !== null) {
-    let zombieToRemove = null;
-    
     zombies.forEach((zombie, index) => {
       if (isCollidingWithProjectile(zombie, soldierProjectile)) {
-        zombieToRemove = index;
+        zombie.armor--;
+        soldierProjectile = null; // Move this line outside the if block
+        if (zombie.armor <= 0) {
+          // Remove the zombie NPC
+          zombies.splice(index, 1);
+        }
       }
     });
-    
-    if (zombieToRemove !== null) {
-      // Remove the zombie NPC
-      zombies.splice(zombieToRemove, 1);
-      
-      // Remove the soldier projectile
-      soldierProjectile = null;
-    }
   }
 
     // Check collision between soldier and player
     if (isColliding(soldier, player)) {
       if (zombies.length < maxZombies) {
         zombies.push({
-          x: soldier.x,
-          y: soldier.y,
+          x: npc.x,
+          y: npc.y,
           size: zombieSize,
           speed: zombieSpeed,
-          color: 'green'
+          color: 'green',
+          armor: zombieArmorUpgradeCount + 1 
         });
       }
       soldier.shouldRemove = true;
@@ -365,6 +401,7 @@ function update() {
 
     // Remove soldier if shouldRemove is true
     if (soldier !== null && soldier.shouldRemove) {
+      
       soldier = null;
     }
   }
@@ -391,6 +428,10 @@ function render() {
   // Clear Canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Draw objects relative to the camera position
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
   // Draw NPC
   ctx.beginPath();
   ctx.arc(npc.x + npc.size / 2, npc.y + npc.size / 2, npc.size / 2, 0, 2 * Math.PI);
@@ -414,15 +455,35 @@ function render() {
   ctx.drawImage(playerImage, -player.size / 2, -player.size / 2, player.size, player.size);
   ctx.restore();
 
+  // Draw Soldier NPC
+  if (soldier !== null) {
+    ctx.beginPath();
+    ctx.arc(soldier.x + soldier.size / 2, soldier.y + soldier.size / 2, soldier.size / 2, 0, 2 * Math.PI);
+    ctx.fillStyle = soldier.color;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  // Draw Soldier Projectile
+  if (soldierProjectile !== null) {
+    ctx.beginPath();
+    ctx.arc(soldierProjectile.x, soldierProjectile.y, projectileSize, 0, 2 * Math.PI);
+    ctx.fillStyle = 'red';
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  ctx.restore();
+
   // Draw Score
   ctx.font = '24px Arial';
   ctx.fillStyle = 'black';
   ctx.fillText(`Score: ${score}`, 10, 30);
 
-   // Draw Max Zombies
-   ctx.font = '24px Arial';
-   ctx.fillStyle = 'black';
-   ctx.fillText(`Max Zombies: ${maxZombies}`, 10, 60);
+  // Draw Max Zombies
+  ctx.font = '24px Arial';
+  ctx.fillStyle = 'black';
+  ctx.fillText(`Max Zombies: ${maxZombies}`, 10, 60);
 
    // Draw Soldier NPC
   if (soldier !== null) {
@@ -555,8 +616,49 @@ function updateStoreMenu() {
     <p>Score: ${score}</p>
     <p>Increase Max Zombies (${maxZombiesUpgradeCost} points)</p>
     <button id="maxZombiesUpgrade">Upgrade</button>
+    <p>Increase Zombie Speed (${zombieSpeedUpgradeCost} points)</p>
+    <button id="zombieSpeedUpgrade">Upgrade</button>
+    <p>Increase Zombie Armor (${zombieArmorUpgradeCost} points)</p>
+    <button id="zombieArmorUpgrade" ${zombieArmorUpgradeCount === maxZombieArmorUpgrades ? 'disabled' : ''}>Upgrade</button>
   `;
 
   const maxZombiesUpgradeButton = document.getElementById('maxZombiesUpgrade');
   maxZombiesUpgradeButton.addEventListener('click', upgradeMaxZombies);
+
+  const zombieSpeedUpgradeButton = document.getElementById('zombieSpeedUpgrade');
+  zombieSpeedUpgradeButton.addEventListener('click', upgradeZombieSpeed);
+
+  const zombieArmorUpgradeButton = document.getElementById('zombieArmorUpgrade');
+  zombieArmorUpgradeButton.addEventListener('click', upgradeZombieArmor);
+}
+
+function upgradeZombieSpeed() {
+  if (score >= zombieSpeedUpgradeCost) {
+    score -= zombieSpeedUpgradeCost;
+    zombieSpeed += 0.1; // Increase base zombie speed by 0.1
+    zombieSpeedUpgradeCount++;
+    zombieSpeedUpgradeCost += 10;
+
+    // Update the speed of all existing zombie NPCs
+    zombies.forEach(zombie => {
+      zombie.speed = zombieSpeed;
+    });
+
+    updateStoreMenu();
+  }
+}
+
+
+function upgradeZombieArmor() {
+  if (score >= zombieArmorUpgradeCost && zombieArmorUpgradeCount < maxZombieArmorUpgrades) {
+    score -= zombieArmorUpgradeCost;
+    zombieArmorUpgradeCount++;
+
+    // Update the armor of all existing zombie NPCs
+    zombies.forEach(zombie => {
+      zombie.armor = zombieArmorUpgradeCount + 1; // Change this line
+    });
+
+    updateStoreMenu();
+  }
 }

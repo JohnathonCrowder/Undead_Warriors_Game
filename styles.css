@@ -1,0 +1,48 @@
+/* Store Menu Styles */
+#storeMenu {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+#storeMenu h2 {
+  font-size: 24px;
+  margin-top: 0;
+  text-align: center;
+}
+
+#storeMenu p {
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+#storeMenu button {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #4caf50;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#storeMenu button:hover {
+  background-color: #3e8e41;
+}
+
+#storeMenu button:disabled {
+  background-color: #ccc;
+  color: #666;
+  cursor: not-allowed;
+}
